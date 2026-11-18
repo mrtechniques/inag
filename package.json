@@ -1,0 +1,18 @@
+{
+  "name": "yenartifica",
+  "version": "1.0.0",
+  "description": "PROJECT AWAKEN — YENARTIFICA Interactive Department Inauguration System",
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev -- --host",
+    "build:client": "npm --prefix client run build",
+    "build:server": "npm --prefix server run build",
+    "build": "npm run build:client && npm run build:server",
+    "start": "node server/dist/index.js",
+    "test:workflow": "npm --prefix server run test:workflow"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
