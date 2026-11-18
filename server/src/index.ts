@@ -60,6 +60,22 @@ app.post('/api/admin/login', (req, res) => {
   }
 });
 
+// Serve video directory (e.g. /video/1.mp4)
+const rootVideoDir = path.resolve(process.cwd(), 'video');
+const parentVideoDir = path.resolve(process.cwd(), '../video');
+const videoDir = fs.existsSync(rootVideoDir) ? rootVideoDir : fs.existsSync(parentVideoDir) ? parentVideoDir : null;
+
+if (videoDir) {
+  console.log(`[HTTP] Serving video assets from: ${videoDir}`);
+  app.use('/video', express.static(videoDir));
+}
+
+app.get('/api/video-check', (_req, res) => {
+  const file1 = path.join(videoDir || '', '1.mp4');
+  const exists = fs.existsSync(file1);
+  res.json({ exists, path: '/video/1.mp4' });
+});
+
 // Serve frontend static build if available
 const clientDistPath = path.resolve(process.cwd(), '../client/dist');
 const localClientDist = path.resolve(process.cwd(), 'client/dist');

@@ -97,6 +97,10 @@ function setupSocketHandlers(io, sm) {
                 socket.emit('error:notification', { message: result.error });
             }
         });
+        // 11. Display: Video playback ended
+        socket.on('display:inauguration_complete', () => {
+            sm.completeInauguration();
+        });
         // Disconnect handling
         socket.on('disconnect', () => {
             sm.handleDisconnect(socket.id);

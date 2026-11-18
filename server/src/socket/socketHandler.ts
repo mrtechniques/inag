@@ -122,6 +122,11 @@ export function setupSocketHandlers(io: Server, sm: StateMachine): void {
       }
     });
 
+    // 11. Display: Video playback ended
+    socket.on('display:inauguration_complete', () => {
+      sm.completeInauguration();
+    });
+
     // Disconnect handling
     socket.on('disconnect', () => {
       sm.handleDisconnect(socket.id);

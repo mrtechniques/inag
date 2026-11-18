@@ -14,6 +14,9 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:4000',
       },
+      '/video': {
+        target: 'http://localhost:4000',
+      },
     },
   },
   build: {

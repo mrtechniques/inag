@@ -320,6 +320,19 @@ export class StateMachine extends EventEmitter {
   }
 
   /**
+   * Called when video finishes playing or ceremony is complete.
+   */
+  public completeInauguration(): void {
+    if (this.state !== 'INAUGURATED') {
+      const prev = this.state;
+      this.state = 'INAUGURATED';
+      this.addLog('ALERT', 'SYSTEM', '✦ YENARTIFICA OFFICIALLY INAUGURATED! Ceremony sequence complete.');
+      this.emit('stateChanged', this.state, prev);
+      this.broadcastUpdate();
+    }
+  }
+
+  /**
    * Admin: Reset the system.
    */
   public resetSystem(adminToken: string, hardReset: boolean = false): { success: boolean; error?: string } {
@@ -412,7 +425,14 @@ export class StateMachine extends EventEmitter {
     const anyConnected = slotList.some(s => s.connected && s.claimed);
 
     if (allAuthorized) {
-      this.state = 'ALL_AUTHORIZED';
+      if (this.state !== 'COUNTDOWN' && this.state !== 'AWAKENING' && this.state !== 'LOGO_REVEAL' && this.state !== 'INAUGURATED') {
+        this.state = 'COUNTDOWN';
+        this.inauguratedAt = Date.now();
+        this.addLog('ALERT', 'SYSTEM', `★ ALL ${this.targetCount} AUTHORIZATIONS RECEIVED! Automatic 3-2-1 Countdown & Inauguration Video Sequence Engaged!`);
+        this.emit('stateChanged', this.state, prev);
+        this.emit('inaugurationTriggered');
+        return;
+      }
     } else if (this.state === 'ARMED') {
       // Keep ARMED once armed until reset or all authorized
       this.state = 'ARMED';

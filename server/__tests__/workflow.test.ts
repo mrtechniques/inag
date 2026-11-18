@@ -193,24 +193,24 @@ async function runTests() {
     const resumeRes = await waitForEvent<{ success: boolean; slot: any }>(client3, 'session:resumed');
     assert(resumeRes.success && resumeRes.slot.id === 3, 'Device 3 successfully resumed session and slot reservation');
 
-    // 13. Device 3 authorizes (3/3) -> System must transition to ALL_AUTHORIZED
+    // 13. Device 3 authorizes (3/3) -> System automatically triggers COUNTDOWN without needing admin button
     const snapPromise3 = waitForEvent<SystemSnapshot>(adminClient, 'system:snapshot');
+    const autoInaugPromise = waitForEvent(client1, 'inauguration:triggered');
     client3.emit('controller:authorize', { slotId: 3, sessionToken: token3 });
     const auth3 = await waitForEvent<{ success: boolean }>(client3, 'controller:authorize_result');
     const snap3 = await snapPromise3;
-    assert(auth3.success && snap3.state === 'ALL_AUTHORIZED' && snap3.authorizedCount === 3, 'All 3 devices authorized -> State: ALL_AUTHORIZED (3/3)');
+    const autoInaugEvent = await autoInaugPromise;
+    assert(auth3.success && snap3.state === 'COUNTDOWN' && snap3.authorizedCount === 3 && !!autoInaugEvent, 'All 3 devices authorized -> Auto-triggers COUNTDOWN & broadcasted event to all clients (3/3)');
 
-    // 14. Begin Inauguration now -> MUST SUCCEED and trigger inauguration sequence
-    const inaugEventPromise = waitForEvent(client1, 'inauguration:triggered');
-    adminClient.emit('admin:begin_inauguration', { adminToken });
-    const inaugResult = await waitForEvent<{ success: boolean }>(adminClient, 'admin:action_result');
-    const inaugEvent = await inaugEventPromise;
-    assert(inaugResult.success && stateMachine.getState() === 'COUNTDOWN' && !!inaugEvent, 'Begin Inauguration triggered countdown & broadcasted event to all clients');
+    // 14. Video completion simulation -> state reaches INAUGURATED
+    adminClient.emit('display:inauguration_complete');
+    await sleep(100);
+    assert(stateMachine.getState() === 'INAUGURATED', 'Display video completion event sets state to INAUGURATED');
 
-    // 15. Attempt duplicate inauguration trigger -> MUST BE REJECTED
+    // 15. Attempt duplicate inauguration trigger -> handled safely
     adminClient.emit('admin:begin_inauguration', { adminToken });
     const dupInaug = await waitForEvent<{ success: boolean }>(adminClient, 'admin:action_result');
-    assert(!dupInaug.success, 'Duplicate Inauguration trigger prevented');
+    assert(!dupInaug.success, 'Duplicate Inauguration trigger prevented in INAUGURATED state');
 
     // 16. Test Emergency Reset
     adminClient.emit('admin:reset', { adminToken, hardReset: false });
@@ -244,15 +244,10 @@ async function runTests() {
     const singleArm = await waitForEvent<{ success: boolean }>(adminClient, 'admin:action_result');
     assert(singleArm.success && stateMachine.getState() === 'ARMED', 'System ARMED for 1-device inauguration');
 
-    // Single device authorizes
+    // Single device authorizes -> automatically triggers COUNTDOWN (1/1)
     singleClient.emit('controller:authorize', { slotId: 1, sessionToken: singleReg.token });
     const singleAuth = await waitForEvent<{ success: boolean }>(singleClient, 'controller:authorize_result');
-    assert(singleAuth.success && stateMachine.getState() === 'ALL_AUTHORIZED', 'Single device authorized -> reaches ALL_AUTHORIZED (1/1)');
-
-    // Begin Inauguration on single-device system
-    adminClient.emit('admin:begin_inauguration', { adminToken });
-    const singleInaug = await waitForEvent<{ success: boolean }>(adminClient, 'admin:action_result');
-    assert(singleInaug.success && stateMachine.getState() === 'COUNTDOWN', 'Begin Inauguration triggered for 1-device ceremony');
+    assert(singleAuth.success && stateMachine.getState() === 'COUNTDOWN', 'Single device authorized -> auto-triggers COUNTDOWN immediately (1/1)');
 
     singleClient.disconnect();
 

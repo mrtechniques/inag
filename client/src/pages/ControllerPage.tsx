@@ -3,15 +3,16 @@ import { useSocket } from '../hooks/useSocket';
 import { SlotId, SlotState } from '../types';
 import { LedIndicator } from '../components/LedIndicator';
 import { sound } from '../utils/audio';
-import {
-  Shield,
-  Smartphone,
-  CheckCircle2,
-  AlertTriangle,
-  Lock,
-  Radio,
+import { 
+  Shield, 
+  Smartphone, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Lock, 
+  Radio, 
   Sparkles,
-  LogOut
+  LogOut,
+  Tv
 } from 'lucide-react';
 
 const STORAGE_TOKEN_KEY = 'yenartifica_dev_token';
@@ -42,7 +43,7 @@ export const ControllerPage: React.FC = () => {
   });
 
   const [submitting, setSubmitting] = useState(false);
-  const [, setAuthSuccessAnimation] = useState(false);
+  const [mobileCountdown, setMobileCountdown] = useState<number | null>(null);
 
   // Attempt to resume session on connect
   useEffect(() => {
@@ -67,6 +68,49 @@ export const ControllerPage: React.FC = () => {
       socket.off('session:resumed', handleResume);
     };
   }, [socket, connected, sessionToken]);
+
+  const state = snapshot?.state || 'STANDBY';
+  const slots = snapshot?.slots || {};
+  const slotList = Object.values(slots).sort((a, b) => a.id - b.id);
+  const mySlot = mySlotId && slots[mySlotId] ? slots[mySlotId] : null;
+  const isArmed = state === 'ARMED';
+  const isMyAuthorized = mySlot?.authorized || false;
+  const canAuthorize = isArmed && !isMyAuthorized && connected;
+
+  // Synchronized Mobile Countdown effect
+  useEffect(() => {
+    if (state === 'COUNTDOWN') {
+      if (mobileCountdown === null) {
+        setMobileCountdown(3);
+        try {
+          if ('vibrate' in navigator) navigator.vibrate([120]);
+        } catch {}
+      }
+    } else if (state === 'STANDBY' || state === 'READY' || state === 'ARMED') {
+      setMobileCountdown(null);
+    }
+  }, [state, mobileCountdown]);
+
+  useEffect(() => {
+    if (mobileCountdown === null) return;
+    if (mobileCountdown > 1) {
+      const t = setTimeout(() => {
+        setMobileCountdown(mobileCountdown - 1);
+        try {
+          if ('vibrate' in navigator) navigator.vibrate([120]);
+        } catch {}
+      }, 1000);
+      return () => clearTimeout(t);
+    } else if (mobileCountdown === 1) {
+      const t = setTimeout(() => {
+        setMobileCountdown(0);
+        try {
+          if ('vibrate' in navigator) navigator.vibrate([200, 100, 300]);
+        } catch {}
+      }, 1000);
+      return () => clearTimeout(t);
+    }
+  }, [mobileCountdown]);
 
   // Handle slot registration response
   const handleClaimSlot = (slotId: SlotId) => {
@@ -101,7 +145,7 @@ export const ControllerPage: React.FC = () => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate([100, 50, 200]);
-      } catch { }
+      } catch {}
     }
 
     socket.emit('controller:authorize', {
@@ -113,7 +157,6 @@ export const ControllerPage: React.FC = () => {
       setSubmitting(false);
       if (res.success) {
         sound.playAuthorized();
-        setAuthSuccessAnimation(true);
       }
     };
 
@@ -128,16 +171,56 @@ export const ControllerPage: React.FC = () => {
     setMySlotId(null);
   };
 
-  const state = snapshot?.state || 'STANDBY';
-  const slots = snapshot?.slots || {};
-  const slotList = Object.values(slots).sort((a, b) => a.id - b.id);
-  const mySlot = mySlotId && slots[mySlotId] ? slots[mySlotId] : null;
-  const isArmed = state === 'ARMED';
-  const isMyAuthorized = mySlot?.authorized || false;
-  const canAuthorize = isArmed && !isMyAuthorized && connected;
-
   return (
-    <div className="min-h-screen bg-[#030712] text-slate-100 flex flex-col justify-between p-4 bg-grid-cyber selection:bg-cyan-500 selection:text-black">
+    <div className="min-h-screen bg-[#030712] text-slate-100 flex flex-col justify-between p-4 bg-grid-cyber selection:bg-cyan-500 selection:text-black relative overflow-hidden">
+      {/* Mobile Countdown / Grand Finale Overlay */}
+      {(mobileCountdown !== null || state === 'INAUGURATED') && (
+        <div className="fixed inset-0 z-50 bg-[#030712]/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center select-none animate-fadeIn">
+          <div className="absolute inset-0 bg-grid-cyber opacity-30 pointer-events-none" />
+
+          {mobileCountdown !== null && mobileCountdown > 0 ? (
+            /* 3... 2... 1... Digit */
+            <div className="space-y-6 relative z-10 flex flex-col items-center">
+              <div className="w-48 h-48 rounded-full bg-cyan-950/80 border-4 border-cyan-400 flex items-center justify-center glow-cyan shadow-[0_0_50px_rgba(0,240,255,0.7)] animate-pulse">
+                <span className="font-mono text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white to-cyan-300">
+                  {mobileCountdown}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-mono text-base font-bold text-cyan-300 tracking-wider">
+                  ALL KEYS VERIFIED // ENGAGING
+                </h3>
+                <p className="font-mono text-xs text-slate-400">
+                  Hold on! Inauguration sequence activating...
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* Inauguration Active: Direct audience to look at stage projector screen */
+            <div className="space-y-6 relative z-10 max-w-sm flex flex-col items-center">
+              <div className="w-24 h-24 rounded-2xl bg-emerald-950/80 border-2 border-emerald-400 flex items-center justify-center glow-green shadow-[0_0_40px_rgba(16,185,129,0.5)]">
+                <Tv className="w-12 h-12 text-emerald-400 animate-bounce" />
+              </div>
+
+              <div className="space-y-2">
+                <span className="px-3 py-1 rounded-full bg-emerald-950 border border-emerald-400/50 text-emerald-300 font-mono text-[10px] tracking-widest uppercase">
+                  ✦ AWAKENING ENGAGED ✦
+                </span>
+                <h2 className="font-mono text-2xl font-black text-slate-100 tracking-widest">
+                  YENARTIFICA
+                </h2>
+                <p className="font-mono text-xs font-semibold text-cyan-300">
+                  LOOK AT THE MAIN STAGE PROJECTOR
+                </p>
+                <p className="font-mono text-[11px] text-slate-400 pt-2 leading-relaxed">
+                  Your biometric key was successfully authenticated. The official department reveal video is playing on the main screen!
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Top Header */}
       <header className="border-b border-cyan-500/20 pb-3">
         <div className="flex items-center justify-between">
@@ -155,10 +238,11 @@ export const ControllerPage: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <span
-              className={`flex items-center gap-1.5 font-mono text-[11px] px-2.5 py-1 rounded-full border ${connected
+              className={`flex items-center gap-1.5 font-mono text-[11px] px-2.5 py-1 rounded-full border ${
+                connected
                   ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400'
                   : 'bg-rose-950/80 border-rose-500/40 text-rose-400 animate-pulse'
-                }`}
+              }`}
             >
               <Radio className="w-3 h-3" />
               {connected ? 'LINKED' : 'OFFLINE'}
@@ -179,14 +263,15 @@ export const ControllerPage: React.FC = () => {
             return (
               <div
                 key={slot.id}
-                className={`py-1.5 px-2 rounded-lg border text-center transition-all ${auth
+                className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+                  auth
                     ? 'bg-emerald-950/60 border-emerald-500/60 text-emerald-300'
                     : isArmed && online
-                      ? 'bg-cyan-950/60 border-cyan-400/50 text-cyan-300 animate-pulse'
-                      : online
-                        ? 'bg-slate-900 border-slate-700 text-slate-300'
-                        : 'bg-slate-950/80 border-slate-900 text-slate-600'
-                  } ${isSelf ? 'ring-1 ring-cyan-400' : ''}`}
+                    ? 'bg-cyan-950/60 border-cyan-400/50 text-cyan-300 animate-pulse'
+                    : online
+                    ? 'bg-slate-900 border-slate-700 text-slate-300'
+                    : 'bg-slate-950/80 border-slate-900 text-slate-600'
+                } ${isSelf ? 'ring-1 ring-cyan-400' : ''}`}
               >
                 <div className="flex items-center justify-center gap-1.5">
                   <span className="font-bold">T0{slot.id}</span>
@@ -195,10 +280,10 @@ export const ControllerPage: React.FC = () => {
                       auth
                         ? 'authorized'
                         : online
-                          ? isArmed
-                            ? 'armed'
-                            : 'connected'
-                          : 'disconnected'
+                        ? isArmed
+                          ? 'armed'
+                          : 'connected'
+                        : 'disconnected'
                     }
                     size="sm"
                   />
@@ -261,10 +346,11 @@ export const ControllerPage: React.FC = () => {
                 return (
                   <div
                     key={slot.id}
-                    className={`cyber-panel p-4 rounded-xl border transition-all ${isClaimed && isConnected
+                    className={`cyber-panel p-4 rounded-xl border transition-all ${
+                      isClaimed && isConnected
                         ? 'border-slate-800 opacity-60'
                         : 'border-cyan-500/40 hover:border-cyan-400 hover:glow-cyan'
-                      }`}
+                    }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -280,10 +366,11 @@ export const ControllerPage: React.FC = () => {
                       </div>
 
                       <span
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded ${isClaimed && isConnected
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                          isClaimed && isConnected
                             ? 'bg-rose-950/80 text-rose-300 border border-rose-800'
                             : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
-                          }`}
+                        }`}
                       >
                         {isClaimed && isConnected ? 'OCCUPIED' : 'AVAILABLE'}
                       </span>
@@ -292,10 +379,11 @@ export const ControllerPage: React.FC = () => {
                     <button
                       disabled={isClaimed && isConnected}
                       onClick={() => handleClaimSlot(slot.id)}
-                      className={`w-full mt-2 py-2.5 rounded-lg font-mono text-xs font-semibold tracking-wider transition-all duration-200 active:scale-95 ${isClaimed && isConnected
+                      className={`w-full mt-2 py-2.5 rounded-lg font-mono text-xs font-semibold tracking-wider transition-all duration-200 active:scale-95 ${
+                        isClaimed && isConnected
                           ? 'bg-slate-900 text-slate-600 cursor-not-allowed border border-slate-800'
                           : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400'
-                        }`}
+                      }`}
                     >
                       {isClaimed && isConnected ? 'SLOT OCCUPIED' : `CLAIM TERMINAL 0${slot.id}`}
                     </button>
@@ -326,8 +414,8 @@ export const ControllerPage: React.FC = () => {
                       isMyAuthorized
                         ? 'authorized'
                         : isArmed
-                          ? 'armed'
-                          : 'connected'
+                        ? 'armed'
+                        : 'connected'
                     }
                     size="lg"
                     showLabel
@@ -348,12 +436,13 @@ export const ControllerPage: React.FC = () => {
               <button
                 disabled={!canAuthorize || submitting}
                 onClick={handleAuthorize}
-                className={`w-56 h-56 md:w-64 md:h-64 rounded-full border-4 flex flex-col items-center justify-center transition-all duration-300 relative select-none touch-manipulation ${isMyAuthorized
+                className={`w-56 h-56 md:w-64 md:h-64 rounded-full border-4 flex flex-col items-center justify-center transition-all duration-300 relative select-none touch-manipulation ${
+                  isMyAuthorized
                     ? 'border-emerald-400 bg-emerald-950/80 shadow-[0_0_50px_#10b981] text-emerald-300'
                     : canAuthorize
-                      ? 'border-cyan-400 bg-gradient-to-b from-cyan-950 to-slate-950 shadow-[0_0_40px_#00f0ff] active:scale-95 text-cyan-300 hover:border-white'
-                      : 'border-slate-800 bg-slate-950/90 text-slate-600 shadow-none cursor-not-allowed'
-                  }`}
+                    ? 'border-cyan-400 bg-gradient-to-b from-cyan-950 to-slate-950 shadow-[0_0_40px_#00f0ff] active:scale-95 text-cyan-300 hover:border-white'
+                    : 'border-slate-800 bg-slate-950/90 text-slate-600 shadow-none cursor-not-allowed'
+                }`}
               >
                 {isMyAuthorized ? (
                   <>
@@ -394,7 +483,7 @@ export const ControllerPage: React.FC = () => {
               {isMyAuthorized ? (
                 <div className="text-emerald-400 flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>Your authorization is recorded! Awaiting remaining dignitaries.</span>
+                  <span>Your authorization is recorded! Countdown will start automatically when all terminals press.</span>
                 </div>
               ) : isArmed ? (
                 <div className="text-cyan-300 flex items-center justify-center gap-2 animate-pulse">

@@ -366,7 +366,7 @@ export const AdminPage: React.FC = () => {
                     EXECUTIVE PROTOCOL CONTROLS
                   </h3>
                   <p className="font-mono text-xs text-slate-400">
-                    Step 1: Wait for {targetDeviceCount}/{targetDeviceCount} connections &rarr; ARM SYSTEM. Step 2: Dignitaries press mobile triggers &rarr; BEGIN INAUGURATION.
+                    Step 1: Wait for {targetDeviceCount}/{targetDeviceCount} connections &rarr; ARM SYSTEM. Step 2: Dignitaries press mobile triggers &rarr; 3-2-1 Countdown & Video start automatically!
                   </p>
                 </div>
 
